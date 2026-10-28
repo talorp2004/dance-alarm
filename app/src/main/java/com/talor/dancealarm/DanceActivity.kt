@@ -11,7 +11,10 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.annotation.SuppressLint
+import android.view.MotionEvent
 import android.view.View
+import android.widget.Button
 import android.view.WindowManager
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -56,6 +59,10 @@ class DanceActivity : AppCompatActivity() {
     private lateinit var debugText: TextView
     private lateinit var songText: TextView
     private lateinit var progressBar: ProgressBar
+    private lateinit var closeButton: Button
+    private lateinit var emergencyButton: TextView
+    private lateinit var backBlocker: OnBackPressedCallback
+    private var holdStart = 0L
 
     private lateinit var detector: DanceDetector
     private var poseDetector: PoseDetector? = null
@@ -104,15 +111,20 @@ class DanceActivity : AppCompatActivity() {
         debugText = findViewById(R.id.debugText)
         songText = findViewById(R.id.songText)
         progressBar = findViewById(R.id.progressBar)
+        closeButton = findViewById(R.id.closeButton)
+        emergencyButton = findViewById(R.id.emergencyButton)
+        closeButton.setOnClickListener { finish() }
+        setupEmergencyButton()
         previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
 
         detector = DanceDetector(Prefs.danceSeconds(this), Prefs.difficulty(this))
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        backBlocker = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 Toast.makeText(this@DanceActivity, "Nope 😄 Dance!", Toast.LENGTH_SHORT).show()
             }
-        })
+        }
+        onBackPressedDispatcher.addCallback(this, backBlocker)
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED
@@ -288,12 +300,62 @@ class DanceActivity : AppCompatActivity() {
         progressBar.progress = 1000
         percentText.text = "100%"
         titleText.text = "Good morning! ☀️"
-        statusText.text = "Alarm off. Have an awesome day."
+        statusText.text = "Alarm off. You've earned it."
         debugText.text = ""
+        unlock()
+    }
 
+    /** Lets you leave: shows Close, re-enables back, hides the emergency button. */
+    private fun unlock() {
+        backBlocker.isEnabled = false
+        emergencyButton.visibility = View.GONE
+        closeButton.visibility = View.VISIBLE
         try {
             getSystemService(KeyguardManager::class.java)?.requestDismissKeyguard(this, null)
         } catch (_: Exception) {}
-        handler.postDelayed({ finish() }, 2500)
+    }
+
+    // ---------- emergency exit: hold for 10 seconds ----------
+
+    private val emergencyTick = object : Runnable {
+        override fun run() {
+            val left = 10 - ((System.currentTimeMillis() - holdStart) / 1000).toInt()
+            if (left <= 0) {
+                emergencyStop()
+            } else {
+                emergencyButton.text = "🆘 Keep holding… $left"
+                handler.postDelayed(this, 100)
+            }
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupEmergencyButton() {
+        emergencyButton.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    holdStart = System.currentTimeMillis()
+                    handler.post(emergencyTick)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(emergencyTick)
+                    if (!finished) emergencyButton.text = "🆘 Hold 10s"
+                }
+            }
+            true
+        }
+    }
+
+    private fun emergencyStop() {
+        handler.removeCallbacks(emergencyTick)
+        if (finished) return
+        finished = true
+        AlarmService.stop(this)
+        sensorListener?.let { sensorManager?.unregisterListener(it) }
+        try { cameraProvider?.unbindAll() } catch (_: Exception) {}
+        titleText.text = "Emergency stop"
+        statusText.text = "Alarm off."
+        debugText.text = ""
+        unlock()
     }
 }
