@@ -1,0 +1,61 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        shell: bash
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew assembleRelease --stacktrace 2>&1 | tee build.log
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk DanceAlarm.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DanceAlarm
+          path: DanceAlarm.apk
+
+      - name: Publish as "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest DanceAlarm.apk \
+            --target "${{ github.sha }}" \
+            --title "Dance Alarm (build ${{ github.run_number }})" \
+            --notes "Download DanceAlarm.apk below on your phone and open it to install."
+
+      - name: Save build log on failure
+        if: failure()
+        shell: bash
+        run: |
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          cp build.log /tmp/build.log || echo "no log" > /tmp/build.log
+          git checkout --orphan build-logs
+          git rm -rf --cached . > /dev/null
+          cp /tmp/build.log build.log
+          git add -f build.log
+          git commit -m "Build log for run ${{ github.run_number }}"
+          git push -f origin build-logs

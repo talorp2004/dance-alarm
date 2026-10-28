@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💃 Dance Alarm"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="The only way to stop it is to dance."
+            android:textColor="@color/text_dim" />
+
+        <!-- Alarm time -->
+        <LinearLayout style="@style/Card">
+
+            <TextView
+                android:id="@+id/timeText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center"
+                android:text="07:00"
+                android:textColor="#FFFFFF"
+                android:textSize="64sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="tap the time to change it"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/enabledSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Alarm on (every day)"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/nextText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_dim" />
+        </LinearLayout>
+
+        <!-- Playlist -->
+        <LinearLayout style="@style/Card">
+
+            <TextView
+                style="@style/CardTitle"
+                android:text="🎵 Playlist (a random song plays)" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnAddSongs"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Add songs" />
+
+                <Button
+                    android:id="@+id/btnAddFolder"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="Add folder" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/songsEmpty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="No songs yet — the default alarm sound will play."
+                android:textColor="@color/text_dim" />
+
+            <LinearLayout
+                android:id="@+id/songsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/btnClear"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clear playlist" />
+        </LinearLayout>
+
+        <!-- Dance settings -->
+        <LinearLayout style="@style/Card">
+
+            <TextView
+                style="@style/CardTitle"
+                android:text="🕺 How much dancing?" />
+
+            <RadioGroup
+                android:id="@+id/durationGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton android:id="@+id/rb15" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="15 sec" />
+                <RadioButton android:id="@+id/rb30" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="30 sec" />
+                <RadioButton android:id="@+id/rb60" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="60 sec" />
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Strictness"
+                android:textColor="@color/text_dim" />
+
+            <RadioGroup
+                android:id="@+id/difficultyGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton android:id="@+id/rbEasy" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Chill" />
+                <RadioButton android:id="@+id/rbNormal" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Normal" />
+                <RadioButton android:id="@+id/rbHard" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Hard" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <!-- Permissions -->
+        <LinearLayout style="@style/Card">
+
+            <TextView
+                style="@style/CardTitle"
+                android:text="🔐 Setup" />
+
+            <LinearLayout
+                android:id="@+id/permsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnTest"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="18dp"
+            android:text="Test the alarm now"
+            android:textSize="17sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="24dp"
+            android:gravity="center"
+            android:text="Tip: prop your phone up 2–3 m away so it can see your whole body."
+            android:textColor="@color/text_dim"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>
