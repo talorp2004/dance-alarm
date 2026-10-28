@@ -28,6 +28,25 @@
         <!-- Alarm time -->
         <LinearLayout style="@style/Card">
 
+            <RadioGroup
+                android:id="@+id/alarmSourceGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rbOwnTime"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Ring at my own time" />
+
+                <RadioButton
+                    android:id="@+id/rbPhoneAlarm"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Ring with my phone's morning alarm (Clock app)" />
+            </RadioGroup>
+
             <TextView
                 android:id="@+id/timeText"
                 android:layout_width="match_parent"
@@ -40,6 +59,7 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/timeHint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
@@ -52,7 +72,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:text="Alarm on (every day)"
+                android:text="Dance alarm on"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp" />
 
@@ -68,7 +88,74 @@
 
             <TextView
                 style="@style/CardTitle"
-                android:text="🎵 Playlist (a random song plays)" />
+                android:text="🎵 Music (a random song plays)" />
+
+            <RadioGroup
+                android:id="@+id/musicSourceGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton android:id="@+id/rbLocal" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="My songs" />
+                <RadioButton android:id="@+id/rbSpotify" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Spotify playlist" />
+            </RadioGroup>
+
+            <LinearLayout
+                android:id="@+id/spotifySection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/spotifyStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnSpotifyLogin"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Log in to Spotify" />
+
+                    <Button
+                        android:id="@+id/btnChoosePlaylist"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="Choose playlist" />
+                </LinearLayout>
+
+                <EditText
+                    android:id="@+id/spotifyClientId"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Spotify Client ID"
+                    android:importantForAutofill="no"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="@color/text_dim"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/localTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Backup songs — used if Spotify can't play (no internet, etc.)"
+                    android:textColor="@color/text_dim"
+                    android:textSize="13sp" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"

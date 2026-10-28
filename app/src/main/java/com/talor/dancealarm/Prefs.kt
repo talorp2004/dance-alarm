@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 
 data class Song(val uri: String, val name: String)
 
+const val DEFAULT_SPOTIFY_CLIENT_ID = "a88890a7e1d8475b8ab4a599e4fe635d"
+
 object Prefs {
     private fun p(c: Context): SharedPreferences =
         c.getSharedPreferences("dance_alarm", Context.MODE_PRIVATE)
@@ -50,4 +52,43 @@ object Prefs {
         setSongs(c, current)
         return added
     }
+
+    // ---------- alarm source ----------
+    /** true = ring together with the phone's own (Clock app) morning alarm */
+    fun followPhone(c: Context) = p(c).getBoolean("follow_phone", false)
+    fun setFollowPhone(c: Context, v: Boolean) = p(c).edit().putBoolean("follow_phone", v).apply()
+
+    /** When the dance alarm is actually set to go off next (0 = not set). */
+    fun scheduledAt(c: Context) = p(c).getLong("scheduled_at", 0L)
+    fun setScheduledAt(c: Context, v: Long) = p(c).edit().putLong("scheduled_at", v).apply()
+
+    // ---------- music source ----------
+    fun useSpotify(c: Context) = p(c).getBoolean("use_spotify", false)
+    fun setUseSpotify(c: Context, v: Boolean) = p(c).edit().putBoolean("use_spotify", v).apply()
+
+    fun spotifyClientId(c: Context) = p(c).getString("sp_client_id", DEFAULT_SPOTIFY_CLIENT_ID) ?: ""
+    fun setSpotifyClientId(c: Context, v: String) = p(c).edit().putString("sp_client_id", v.trim()).apply()
+
+    fun spotifyVerifier(c: Context) = p(c).getString("sp_verifier", "") ?: ""
+    fun setSpotifyVerifier(c: Context, v: String) = p(c).edit().putString("sp_verifier", v).apply()
+
+    fun spotifyAccess(c: Context) = p(c).getString("sp_access", "") ?: ""
+    fun spotifyRefresh(c: Context) = p(c).getString("sp_refresh", "") ?: ""
+    fun spotifyExpiry(c: Context) = p(c).getLong("sp_expiry", 0L)
+    fun setSpotifyTokens(c: Context, access: String, refresh: String?, expiresInSec: Long) {
+        val e = p(c).edit()
+            .putString("sp_access", access)
+            .putLong("sp_expiry", System.currentTimeMillis() + (expiresInSec - 60) * 1000)
+        if (!refresh.isNullOrBlank()) e.putString("sp_refresh", refresh)
+        e.apply()
+    }
+    fun clearSpotifyTokens(c: Context) =
+        p(c).edit().remove("sp_access").remove("sp_refresh").remove("sp_expiry").apply()
+
+    fun spotifyPlaylistUri(c: Context) = p(c).getString("sp_pl_uri", "") ?: ""
+    fun spotifyPlaylistName(c: Context) = p(c).getString("sp_pl_name", "") ?: ""
+    /** Number of songs, or -1 if Spotify doesn't tell us (playlists you only follow). */
+    fun spotifyPlaylistCount(c: Context) = p(c).getInt("sp_pl_count", -1)
+    fun setSpotifyPlaylist(c: Context, uri: String, name: String, count: Int) =
+        p(c).edit().putString("sp_pl_uri", uri).putString("sp_pl_name", name).putInt("sp_pl_count", count).apply()
 }

@@ -12,12 +12,15 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.text.format.DateFormat
 import android.view.Gravity
+import android.view.View
+import android.widget.EditText
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
@@ -31,6 +34,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var songsContainer: LinearLayout
     private lateinit var songsEmpty: TextView
     private lateinit var permsContainer: LinearLayout
+    private lateinit var timeHint: TextView
+    private lateinit var spotifySection: LinearLayout
+    private lateinit var spotifyStatus: TextView
+    private lateinit var clientIdEdit: EditText
 
     private val pickSongs =
         registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -53,6 +60,32 @@ class MainActivity : AppCompatActivity() {
         songsContainer = findViewById(R.id.songsContainer)
         songsEmpty = findViewById(R.id.songsEmpty)
         permsContainer = findViewById(R.id.permsContainer)
+        timeHint = findViewById(R.id.timeHint)
+        spotifySection = findViewById(R.id.spotifySection)
+        spotifyStatus = findViewById(R.id.spotifyStatus)
+        clientIdEdit = findViewById(R.id.spotifyClientId)
+
+        // --- alarm source ---
+        val alarmSourceGroup = findViewById<RadioGroup>(R.id.alarmSourceGroup)
+        alarmSourceGroup.check(if (Prefs.followPhone(this)) R.id.rbPhoneAlarm else R.id.rbOwnTime)
+        alarmSourceGroup.setOnCheckedChangeListener { _, id ->
+            Prefs.setFollowPhone(this, id == R.id.rbPhoneAlarm)
+            AlarmScheduler.schedule(this)
+            refreshTime()
+            refreshNext()
+        }
+
+        // --- music source ---
+        val musicGroup = findViewById<RadioGroup>(R.id.musicSourceGroup)
+        musicGroup.check(if (Prefs.useSpotify(this)) R.id.rbSpotify else R.id.rbLocal)
+        musicGroup.setOnCheckedChangeListener { _, id ->
+            Prefs.setUseSpotify(this, id == R.id.rbSpotify)
+            refreshSpotify()
+        }
+        clientIdEdit.setText(Prefs.spotifyClientId(this))
+        findViewById<Button>(R.id.btnSpotifyLogin).setOnClickListener { spotifyLogin() }
+        findViewById<Button>(R.id.btnChoosePlaylist).setOnClickListener { choosePlaylist() }
+        handleSpotifyRedirect(intent)
 
         timeText.setOnClickListener { showTimePicker() }
 
@@ -116,12 +149,137 @@ class MainActivity : AppCompatActivity() {
         refreshTime()
         refreshNext()
         refreshSongs()
+        refreshSpotify()
         refreshPermissions()
     }
+
+    override fun onPause() {
+        saveClientId()
+        super.onPause()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleSpotifyRedirect(intent)
+    }
+
+    // ---------- Spotify ----------
+
+    private fun saveClientId() {
+        val id = clientIdEdit.text.toString().trim()
+        if (id.isNotBlank() && id != Prefs.spotifyClientId(this)) {
+            Prefs.setSpotifyClientId(this, id)
+            Prefs.clearSpotifyTokens(this)
+        }
+    }
+
+    private fun spotifyLogin() {
+        saveClientId()
+        val i = SpotifyApi.loginIntent(this)
+        if (i == null) {
+            Toast.makeText(this, "Enter your Spotify Client ID first", Toast.LENGTH_LONG).show()
+            return
+        }
+        try { startActivity(i) } catch (e: Exception) {
+            Toast.makeText(this, "No browser found", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun handleSpotifyRedirect(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != "dancealarm" || data.host != "spotify-callback") return
+        setIntent(Intent(this, MainActivity::class.java)) // don't handle it twice
+        spotifyStatus.text = "Finishing Spotify login…"
+        Thread {
+            val error = SpotifyApi.handleRedirect(this, data)
+            runOnUiThread {
+                refreshSpotify()
+                if (error != null) {
+                    Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "Logged in to Spotify ✅", Toast.LENGTH_SHORT).show()
+                    choosePlaylist()
+                }
+            }
+        }.start()
+    }
+
+    private fun choosePlaylist() {
+        if (!SpotifyApi.isLoggedIn(this)) {
+            spotifyLogin()
+            return
+        }
+        spotifyStatus.text = "Loading your playlists…"
+        Thread {
+            val result = try {
+                Result.success(SpotifyApi.playlists(this))
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+            runOnUiThread {
+                refreshSpotify()
+                result.onFailure {
+                    Toast.makeText(this, "Couldn't load playlists: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+                result.onSuccess { lists ->
+                    if (lists.isEmpty()) {
+                        Toast.makeText(this, "No playlists found in your library", Toast.LENGTH_LONG).show()
+                        return@onSuccess
+                    }
+                    val labels = lists.map { pl ->
+                        if (pl.total >= 0) "${pl.name}  (${pl.total} songs)" else pl.name
+                    }.toTypedArray()
+                    AlertDialog.Builder(this)
+                        .setTitle("Pick the wake-up playlist")
+                        .setItems(labels) { _, which -> onPlaylistPicked(lists[which]) }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            }
+        }.start()
+    }
+
+    private fun onPlaylistPicked(pl: SpotifyApi.Playlist) {
+        Prefs.setSpotifyPlaylist(this, pl.uri, pl.name, pl.total)
+        Prefs.setUseSpotify(this, true)
+        findViewById<RadioGroup>(R.id.musicSourceGroup).check(R.id.rbSpotify)
+        refreshSpotify()
+        // One-time "allow Dance Alarm to control Spotify" approval, while you're awake to tap it.
+        SpotifyPlayer.authorize(this) { error ->
+            runOnUiThread {
+                if (error == null) {
+                    Toast.makeText(this, "Spotify is ready 🎉 Try \"Test the alarm now\"", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "Spotify app connection failed: $error", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun refreshSpotify() {
+        val on = Prefs.useSpotify(this)
+        spotifySection.visibility = if (on) View.VISIBLE else View.GONE
+        if (!on) return
+        val playlist = Prefs.spotifyPlaylistName(this)
+        spotifyStatus.text = when {
+            !SpotifyAppRemote_isInstalled() -> "⚠️ Install the Spotify app first"
+            !SpotifyApi.isLoggedIn(this) -> "Not logged in yet"
+            playlist.isBlank() -> "Logged in ✅ — now choose a playlist"
+            else -> "Playlist: $playlist"
+        }
+    }
+
+    @Suppress("FunctionName")
+    private fun SpotifyAppRemote_isInstalled() =
+        com.spotify.android.appremote.api.SpotifyAppRemote.isSpotifyInstalled(this)
 
     // ---------- time ----------
 
     private fun showTimePicker() {
+        if (Prefs.followPhone(this)) {
+            Toast.makeText(this, "Set this time in your Clock app — I follow it automatically", Toast.LENGTH_LONG).show()
+            return
+        }
         TimePickerDialog(
             this,
             { _, h, m ->
@@ -137,7 +295,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshTime() {
-        timeText.text = String.format("%02d:%02d", Prefs.hour(this), Prefs.minute(this))
+        if (Prefs.followPhone(this)) {
+            val phone = AlarmScheduler.phoneMorningAlarm(this)
+            if (phone == null) {
+                timeText.text = "--:--"
+                timeHint.text = "No morning alarm (3:00–11:59) is next in your Clock app"
+            } else {
+                timeText.text = DateFormat.getTimeFormat(this).format(java.util.Date(phone))
+                timeHint.text = "taken from your phone's alarm — change it in the Clock app"
+            }
+        } else {
+            timeText.text = String.format("%02d:%02d", Prefs.hour(this), Prefs.minute(this))
+            timeHint.text = "tap the time to change it"
+        }
     }
 
     private fun refreshNext() {
@@ -145,7 +315,12 @@ class MainActivity : AppCompatActivity() {
             nextText.text = "Alarm is off"
             return
         }
-        val mins = (AlarmScheduler.nextTrigger(this) - System.currentTimeMillis()) / 60_000
+        val at = Prefs.scheduledAt(this)
+        if (at <= System.currentTimeMillis()) {
+            nextText.text = if (Prefs.followPhone(this)) "Waiting for a morning alarm in your Clock app" else ""
+            return
+        }
+        val mins = (at - System.currentTimeMillis()) / 60_000
         nextText.text = "Rings in ${mins / 60} h ${mins % 60} min"
     }
 

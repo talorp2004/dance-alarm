@@ -58,6 +58,10 @@ class AlarmService : Service() {
     private var usingFallback = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var originalVolume = -1
+    private var originalMusicVolume = -1
+    private var spotify: SpotifyPlayer? = null
+    private var spotifyMode = false
+    private var musicVolumeTouched = false
     private var startedAt = 0L
 
     private val watchdog = object : Runnable {
@@ -88,9 +92,10 @@ class AlarmService : Service() {
 
         val am = getSystemService(AudioManager::class.java)
         originalVolume = am.getStreamVolume(AudioManager.STREAM_ALARM)
+        originalMusicVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
         forceMaxVolume()
 
-        playNext()
+        startMusic()
         startVibration()
         launchDanceScreen()
         handler.postDelayed(watchdog, WATCHDOG_MS)
@@ -101,14 +106,17 @@ class AlarmService : Service() {
         isRinging = false
         currentSong = ""
         handler.removeCallbacksAndMessages(null)
+        spotify?.stop()
+        spotify = null
         releasePlayer()
         try { getSystemService(Vibrator::class.java)?.cancel() } catch (_: Exception) {}
-        if (originalVolume >= 0) {
-            try {
-                getSystemService(AudioManager::class.java)
-                    .setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
-            } catch (_: Exception) {}
-        }
+        try {
+            val am = getSystemService(AudioManager::class.java)
+            if (originalVolume >= 0) am.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
+            if (musicVolumeTouched && originalMusicVolume >= 0) {
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, originalMusicVolume, 0)
+            }
+        } catch (_: Exception) {}
         wakeLock?.let { if (it.isHeld) it.release() }
         super.onDestroy()
     }
@@ -166,13 +174,55 @@ class AlarmService : Service() {
     private fun forceMaxVolume() {
         try {
             val am = getSystemService(AudioManager::class.java)
-            val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            if (am.getStreamVolume(AudioManager.STREAM_ALARM) < max) {
-                am.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
+            // Spotify plays on the media stream, our own songs on the alarm stream.
+            val streams = if (spotifyMode) intArrayOf(AudioManager.STREAM_ALARM, AudioManager.STREAM_MUSIC)
+            else intArrayOf(AudioManager.STREAM_ALARM)
+            if (spotifyMode) musicVolumeTouched = true
+            for (stream in streams) {
+                val max = am.getStreamMaxVolume(stream)
+                if (am.getStreamVolume(stream) < max) am.setStreamVolume(stream, max, 0)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Volume change failed", e)
         }
+    }
+
+    /** Spotify playlist if set up, otherwise (or if Spotify fails) your own songs. */
+    private fun startMusic() {
+        if (!(Prefs.useSpotify(this) && SpotifyPlayer.isReady(this))) {
+            playNext()
+            return
+        }
+        spotifyMode = true
+        forceMaxVolume()
+        currentSong = "Starting Spotify…"
+        var started = false
+        val giveUp = Runnable {
+            if (!started && isRinging) {
+                Log.w(TAG, "Spotify didn't start in time, using local songs")
+                fallBackToLocal()
+            }
+        }
+        handler.postDelayed(giveUp, 20_000)
+        spotify = SpotifyPlayer(
+            this,
+            onSong = { currentSong = it },
+            onPlaying = {
+                started = true
+                handler.removeCallbacks(giveUp)
+            },
+            onFailed = {
+                handler.removeCallbacks(giveUp)
+                if (isRinging) fallBackToLocal()
+            },
+        ).also { it.start() }
+    }
+
+    private fun fallBackToLocal() {
+        spotify?.stop()
+        spotify = null
+        spotifyMode = false
+        playNext()
     }
 
     private fun pickSong(songs: List<Song>): Song {

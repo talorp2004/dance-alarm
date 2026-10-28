@@ -61,6 +61,10 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$camerax")
     implementation("androidx.camera:camera-view:$camerax")
 
+    // Spotify App Remote SDK (controls the Spotify app) + its JSON dependency
+    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // On-device body pose tracking (bundled model, works offline)
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
 }
