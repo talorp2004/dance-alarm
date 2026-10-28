@@ -50,11 +50,11 @@ class DanceDetector(private val requiredSeconds: Int, difficulty: Int) {
         PoseLandmark.LEFT_KNEE, PoseLandmark.RIGHT_KNEE,
         PoseLandmark.LEFT_ANKLE, PoseLandmark.RIGHT_ANKLE,
     )
-    private val armPoints = intArrayOf(
+    private val armPoints = listOf(
         PoseLandmark.LEFT_WRIST, PoseLandmark.RIGHT_WRIST,
         PoseLandmark.LEFT_ELBOW, PoseLandmark.RIGHT_ELBOW,
     )
-    private val legPoints = intArrayOf(
+    private val legPoints = listOf(
         PoseLandmark.LEFT_KNEE, PoseLandmark.RIGHT_KNEE,
         PoseLandmark.LEFT_ANKLE, PoseLandmark.RIGHT_ANKLE,
     )
